@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alice in Wonderland Syndrome — Toy Story Room</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; overflow: hidden; font-family: 'Georgia', serif; }
+    canvas { display: block; }
+
+    #ui {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: rgba(255,255,255,0.85);
+      pointer-events: none;
+      text-shadow: 0 0 12px rgba(0,0,0,0.8);
+    }
+    #scale-label {
+      font-size: 13px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      opacity: 0.7;
+    }
+    #scale-bar-wrap {
+      width: 220px;
+      height: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+      margin: 0 auto 10px;
+      overflow: hidden;
+    }
+    #scale-bar {
+      height: 100%;
+      width: 50%;
+      background: linear-gradient(90deg, #7EB8FF, #FFD580);
+      border-radius: 2px;
+      transition: width 0.1s ease;
+    }
+    #scale-word {
+      font-size: 22px;
+      font-style: italic;
+      letter-spacing: 0.05em;
+    }
+    #hint {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.45);
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<div id="hint">ALICE IN WONDERLAND SYNDROME — TOY STORY ROOM</div>
+
+<div id="ui">
+  <div id="scale-label">perception scale</div>
+  <div id="scale-bar-wrap"><div id="scale-bar"></div></div>
+  <div id="scale-word">normal</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
+
+// ── renderer ────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+// ── scene / camera ───────────────────────────────────────────────
+const scene  = new THREE.Scene();
+scene.fog    = new THREE.Fog(0xCDE8FF, 6, 18);
+
+const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.05, 60);
+camera.position.set(0, 1.55, 5);
+
+// ── Andy's room wallpaper texture ───────────────────────────────
+function makeWallpaper(w = 512, h = 512) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+
+  // sky gradient
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0,   '#6DC6F0');
+  g.addColorStop(0.6, '#A8DCFF');
+  g.addColorStop(1,   '#C8ECFF');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  // fluffy clouds
+  function cloud(x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    const pts = [[0,0,r],[r*.55,-.3*r,r*.72],[-.4*r,-.2*r,r*.6],[r*.9,.1*r,r*.5],[-.7*r,.1*r,r*.45]];
+    pts.forEach(([cx,cy,cr]) => {
+      ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.restore();
+  }
+  [[90,80,42],[260,55,55],[420,95,38],[60,200,35],[190,185,48],[350,220,40],[80,340,45],[240,310,52],[410,350,36],[140,440,38],[310,430,50]].forEach(([x,y,r]) => cloud(x,y,r));
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// ── wooden floor ────────────────────────────────────────────────
+function makeFloor(size = 512) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const planks = ['#C4803A','#D4924A','#B87030','#CA8840','#BC7A38'];
+  const pw = 80;
+  for (let row = 0; row < size / pw; row++) {
+    const col = planks[row % planks.length];
+    ctx.fillStyle = col;
+    ctx.fillRect(0, row * pw, size, pw);
+    // grain
+    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    ctx.lineWidth = 1.5;
+    for (let i = 1; i < 6; i++) {
+      const y = row * pw + (i / 6) * pw;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(size*.3, y + 3, size*.7, y - 3, size, y + 1);
+      ctx.stroke();
+    }
+    // separator
+    ctx.fillStyle = 'rgba(60,30,0,0.35)';
+    ctx.fillRect(0, row * pw, size, 2);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(5, 5);
+  return tex;
+}
+
+// ── room geometry ───────────────────────────────────────────────
+const W = 10, H = 4.5, D = 12;
+const wp  = makeWallpaper();
+const flr = makeFloor();
+
+const matWall    = new THREE.MeshLambertMaterial({ map: wp, side: THREE.FrontSide });
+const matCeiling = new THREE.MeshLambertMaterial({ color: 0xFFF8EE });
+const matFloor   = new THREE.MeshLambertMaterial({ map: flr });
+
+function addPlane(geo, mat, pos, rotX, rotY) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.copy(pos);
+  if (rotX) m.rotation.x = rotX;
+  if (rotY) m.rotation.y = rotY;
+  m.receiveShadow = true;
+  scene.add(m);
+  return m;
+}
+
+addPlane(new THREE.PlaneGeometry(W, D), matFloor,   new THREE.Vector3(0, 0, -D/2+5), -Math.PI/2);
+addPlane(new THREE.PlaneGeometry(W, H), matWall,    new THREE.Vector3(0, H/2, -D/2+5));
+addPlane(new THREE.PlaneGeometry(D, H), matWall,    new THREE.Vector3(-W/2, H/2, -D/2+5+D/2), 0, Math.PI/2);
+addPlane(new THREE.PlaneGeometry(D, H), matWall,    new THREE.Vector3( W/2, H/2, -D/2+5+D/2), 0, -Math.PI/2);
+addPlane(new THREE.PlaneGeometry(W, D), matCeiling, new THREE.Vector3(0, H, -D/2+5), Math.PI/2);
+
+// ── toys ─────────────────────────────────────────────────────────
+const toyColors = [0xFF3B3B, 0x4477FF, 0x33CC66, 0xFFAA00, 0xCC44CC, 0xFF6622];
+
+function box(w, h, d, color, x, y, z, ry = 0) {
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshLambertMaterial({ color })
+  );
+  m.position.set(x, y, z);
+  m.rotation.y = ry;
+  m.castShadow = true;
+  scene.add(m);
+  return m;
+}
+
+// wooden letter blocks cluster
+box(.5,.5,.5, 0xFF3B3B, -2.0, .25, 0,   .3);
+box(.5,.5,.5, 0x4477FF, -1.5, .25, 0.3, -.2);
+box(.5,.5,.5, 0x33CC66, -1.8, .75, 0.1, .5);
+box(.5,.5,.5, 0xFFAA00, -1.2, .25, -.2, .1);
+box(.5,.5,.5, 0xCC44CC, -2.2, .25, 0.6, -.4);
+
+// stacked tower
+box(.6,.6,.6, 0xFF6622,  2.0, .30, -.5, .1);
+box(.5,.5,.5, 0xFF3B3B,  2.0, .85, -.5, .3);
+box(.4,.4,.4, 0xFFAA00,  2.0,1.30, -.5, .5);
+
+// ball
+const ball = new THREE.Mesh(
+  new THREE.SphereGeometry(.45, 32, 32),
+  new THREE.MeshLambertMaterial({ color: 0xFF6B35 })
+);
+ball.position.set(1.2, .45, .5);
+ball.castShadow = true;
+scene.add(ball);
+
+// Woody-ish figure (rough silhouette)
+function figure(x, z) {
+  const g = new THREE.Group();
+  // body
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.12,.16,.5,8), new THREE.MeshLambertMaterial({color:0xF5C87A}));
+  body.position.y = .5; g.add(body);
+  // head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.14,16,16), new THREE.MeshLambertMaterial({color:0xFDDBAA}));
+  head.position.y = .85; g.add(head);
+  // hat
+  const hat = new THREE.Mesh(new THREE.CylinderGeometry(.08,.14,.14,8), new THREE.MeshLambertMaterial({color:0x8B4513}));
+  hat.position.y = 1.01; g.add(hat);
+  // legs
+  [-1,1].forEach(s => {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,.35,8), new THREE.MeshLambertMaterial({color:0x336699}));
+    leg.position.set(s*.08,.18,0); g.add(leg);
+  });
+  g.position.set(x,.0,z);
+  g.castShadow = true;
+  scene.add(g);
+  return g;
+}
+const woody = figure(-3.0, -0.5);
+const buzz  = figure( 3.0,  0.3);
+buzz.children.forEach(c => {
+  if (c.material) c.material = new THREE.MeshLambertMaterial({ color: 0x2244AA });
+});
+
+// shelf
+box(2.5,.08,.3, 0xA0622A, -3.0, 2.0, -4.5, 0);
+box(.5,.4,.25, 0xCC3333,  -3.5, 2.22,-4.5, .2);
+box(.5,.4,.25, 0x3355CC,  -3.0, 2.22,-4.5, -.1);
+box(.5,.4,.25, 0x22AA44,  -2.5, 2.22,-4.5, .3);
+
+// ── lighting ─────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0xFFF0D0, 0.55));
+
+const sun = new THREE.DirectionalLight(0xFFE8C0, 1.8);
+sun.position.set(3, 6, 4);
+sun.castShadow = true;
+sun.shadow.mapSize.setScalar(1024);
+sun.shadow.camera.near = 0.5;
+sun.shadow.camera.far  = 30;
+sun.shadow.camera.left = sun.shadow.camera.bottom = -8;
+sun.shadow.camera.right = sun.shadow.camera.top   =  8;
+scene.add(sun);
+
+const fillLight = new THREE.PointLight(0xFFCC88, .6, 12);
+fillLight.position.set(-2, 3.5, 2);
+scene.add(fillLight);
+
+// ── AIWS distortion shader ───────────────────────────────────────
+// Combines fluid-style UV warping with micro/macropsia lens effects
+const AIWSShader = {
+  uniforms: {
+    tDiffuse:   { value: null },
+    uTime:      { value: 0 },
+    uPhase:     { value: 0 },   // -1 = micropsia, 0 = normal, 1 = macropsia
+    uIntensity: { value: 0 },
+    uResolution:{ value: new THREE.Vector2(innerWidth, innerHeight) },
+  },
+  vertexShader: /* glsl */`
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+  `,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    uniform float uPhase;      // -1..1
+    uniform float uIntensity;  // 0..1
+    uniform vec2  uResolution;
+    varying vec2  vUv;
+
+    // ---- simplex noise 2D ----
+    vec3 mod289v3(vec3 x){ return x - floor(x*(1./289.))*289.; }
+    vec2 mod289v2(vec2 x){ return x - floor(x*(1./289.))*289.; }
+    vec3 permute3(vec3 x){ return mod289v3(((x*34.)+1.)*x); }
+    float snoise(vec2 v){
+      const vec4 C = vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
+      vec2 i  = floor(v + dot(v,C.yy));
+      vec2 x0 = v - i + dot(i,C.xx);
+      vec2 i1 = (x0.x>x0.y) ? vec2(1,0) : vec2(0,1);
+      vec4 x12 = x0.xyxy + C.xxzz;
+      x12.xy -= i1;
+      i = mod289v2(i);
+      vec3 p = permute3(permute3(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));
+      vec3 m = max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
+      m=m*m; m=m*m;
+      vec3 xa = 2.*fract(p*C.www)-1.;
+      vec3 h  = abs(xa)-.5;
+      vec3 ox = floor(xa+.5);
+      vec3 a0 = xa-ox;
+      m *= 1.79284291400159 - 0.85373472095314*(a0*a0+h*h);
+      vec3 g;
+      g.x  = a0.x *x0.x  + h.x *x0.y;
+      g.yz = a0.yz*x12.xz + h.yz*x12.yw;
+      return 130.*dot(m,g);
+    }
+
+    // ---- fluid-style curl displacement ----
+    vec2 fluidOffset(vec2 uv, float t, float str) {
+      float s = 3.5;
+      float nx = snoise(vec2(uv.x*s + t*.4,  uv.y*s - t*.3));
+      float ny = snoise(vec2(uv.x*s - t*.35, uv.y*s + t*.5));
+      // curl to make it divergence-free
+      float dx = snoise(vec2(uv.x*s + t*.4,  uv.y*s - t*.3 + 100.));
+      float dy = snoise(vec2(uv.x*s - t*.35 + 100., uv.y*s + t*.5));
+      return vec2(nx - dy, ny - dx) * str;
+    }
+
+    void main() {
+      vec2 uv = vUv;
+      float t  = uTime;
+      float k  = uIntensity;   // 0..1
+      float ph = uPhase;       // -1..1
+
+      // ---- 1. AIWS lens warp (micro / macropsia) ----
+      // positive phase → macropsia (things seem huge → fisheye squeeze)
+      // negative phase → micropsia (things seem tiny → pincushion stretch)
+      vec2 cen = uv - 0.5;
+      float r2  = dot(cen,cen);
+      // barrel strength: positive = fisheye (macro), negative = pincushion (micro)
+      float barrel = ph * k * 0.55;
+      cen *= 1.0 + barrel * r2 * 3.5;
+      uv = cen + 0.5;
+
+      // ---- 2. Fluid distortion (three-fluid-fx style UV warp) ----
+      float fluidStr = k * 0.022;
+      vec2  offset   = fluidOffset(uv, t, fluidStr);
+      // stronger at periphery, like AIWS perception bleeding at edges
+      float edge = smoothstep(0.0, 0.45, length(cen));
+      uv += offset * (0.4 + edge * 0.8);
+
+      // ---- 3. Chromatic aberration — peaks during phase transition ----
+      float ca = k * (0.006 + abs(ph) * 0.012);
+      vec2  dir = normalize(cen + 1e-5) * ca;
+      float rr = texture2D(tDiffuse, uv + dir).r;
+      float gg = texture2D(tDiffuse, uv      ).g;
+      float bb = texture2D(tDiffuse, uv - dir).b;
+
+      // ---- 4. Vignette — tighter when effect is strong ----
+      float vig = 1.0 - smoothstep(0.35 - k*0.15, 0.85, length(cen) * 1.4);
+
+      // ---- 5. Subtle hue pulse (reality feels "off") ----
+      float hpulse = sin(t * 1.1 + ph * 3.0) * 0.04 * k;
+      rr += hpulse;
+      bb -= hpulse * 0.5;
+
+      gl_FragColor = vec4(vec3(rr,gg,bb) * vig, 1.0);
+    }
+  `,
+};
+
+// ── post-processing ──────────────────────────────────────────────
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const aiwsPass = new ShaderPass(AIWSShader);
+composer.addPass(aiwsPass);
+
+// ── AIWS cycle state ─────────────────────────────────────────────
+// phase sequence: normal → macropsia (giant) → normal → micropsia (tiny) → …
+const CYCLE = [
+  { phase: 0,  duration: 3.0,  label: 'normal',      color: '#ffffff' },
+  { phase: 1,  duration: 6.0,  label: '巨人症',      color: '#FFD580' },
+  { phase: 0,  duration: 2.5,  label: 'normal',      color: '#ffffff' },
+  { phase: -1, duration: 6.0,  label: '小人症',      color: '#7EB8FF' },
+];
+let cycleIdx = 0, cycleT = 0;
+
+const scaleBar  = document.getElementById('scale-bar');
+const scaleWord = document.getElementById('scale-word');
+
+// ── animation loop ───────────────────────────────────────────────
+let clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt   = Math.min(clock.getDelta(), 0.05);
+  const time = clock.getElapsedTime();
+
+  // ---- advance AIWS cycle ----
+  cycleT += dt;
+  const stage = CYCLE[cycleIdx];
+  if (cycleT >= stage.duration) {
+    cycleT -= stage.duration;
+    cycleIdx = (cycleIdx + 1) % CYCLE.length;
+  }
+  const progress  = cycleT / stage.duration;
+  // smooth ease in/out
+  const envelope  = Math.sin(progress * Math.PI);
+  const targetPh  = stage.phase;
+  const intensity = (cycleIdx === 0 || CYCLE[cycleIdx].phase === 0)
+    ? envelope * 0.3          // transition phases: light
+    : envelope;               // peak phases: full
+
+  aiwsPass.uniforms.uTime.value      = time;
+  aiwsPass.uniforms.uPhase.value     = targetPh * intensity;
+  aiwsPass.uniforms.uIntensity.value = intensity * (Math.abs(targetPh) > 0.5 ? 1.0 : 0.4);
+
+  // ---- camera: FOV + height shift to amplify size illusion ----
+  // macropsia → narrow FOV (you feel huge, room looks small)
+  // micropsia → wide FOV  (you feel tiny, room looks vast)
+  const ph   = aiwsPass.uniforms.uPhase.value;
+  const fov  = 65 - ph * 22;
+  camera.fov = fov;
+  camera.updateProjectionMatrix();
+
+  // height: giant = high camera, tiny = low camera
+  const baseY  = 1.55;
+  camera.position.y = baseY + ph * 1.0;
+
+  // subtle sway
+  camera.position.x = Math.sin(time * 0.13) * 0.06;
+  camera.lookAt(
+    Math.sin(time * 0.09) * 0.04,
+    camera.position.y - 0.05,
+    -2
+  );
+
+  // ---- toys breathe slightly ----
+  ball.position.y = .45 + Math.sin(time * 1.4) * .04;
+  woody.rotation.y = Math.sin(time * 0.3) * 0.05;
+  buzz.rotation.y  = Math.sin(time * 0.25 + 1.0) * 0.05;
+
+  // ---- UI ----
+  const normalizedPh = (ph + 1) / 2;  // 0=micro, 0.5=normal, 1=macro
+  scaleBar.style.width = (normalizedPh * 100).toFixed(1) + '%';
+  scaleBar.style.background = ph > 0.05
+    ? 'linear-gradient(90deg,#FFD580,#FF8844)'
+    : ph < -0.05
+    ? 'linear-gradient(90deg,#4499FF,#7EB8FF)'
+    : 'rgba(255,255,255,0.5)';
+  scaleWord.textContent = CYCLE[cycleIdx].label;
+  scaleWord.style.color  = CYCLE[cycleIdx].color;
+
+  composer.render();
+}
+
+animate();
+
+// ── resize ────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+  aiwsPass.uniforms.uResolution.value.set(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
