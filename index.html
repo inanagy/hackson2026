@@ -566,8 +566,8 @@ addEventListener('pointerdown', (e) => {
   pointer.x = e.clientX; pointer.y = e.clientY; pointer.has = true;   // fresh coords for the raycast
   if (e.ctrlKey || e.metaKey){ chaosHold = true; }    // Ctrl/⌘+click → ENTER Chaos Mode (humans look away)
   else if (chaosHold){
-    if (treasureFx <= 0 && raycastHitsTreasure()) foundTreasure();    // clicked the treasure → FOUND!
-    else if (treasureFx <= 0) chaosHold = false;                     // clicked empty space → END Chaos Mode
+    // chaos ends ONLY by defeating the boss — empty clicks do nothing
+    if (treasureFx <= 0 && raycastHitsTreasure()) foundTreasure();
   }
   else fireCannon();                                  // otherwise → fire the toy cannon
 });
