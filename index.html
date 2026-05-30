@@ -2,479 +2,843 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alice in Wonderland Syndrome — Toy Story Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>　</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; overflow: hidden; font-family: 'Georgia', serif; }
+    html, body { height: 100%; }
+    body { background: #1a1410; overflow: hidden; font-family: 'Georgia', 'Hiragino Mincho ProN', serif; cursor: crosshair; }
     canvas { display: block; }
 
-    #ui {
-      position: fixed;
-      bottom: 32px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      color: rgba(255,255,255,0.85);
-      pointer-events: none;
-      text-shadow: 0 0 12px rgba(0,0,0,0.8);
-    }
-    #scale-label {
-      font-size: 13px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-      opacity: 0.7;
-    }
-    #scale-bar-wrap {
-      width: 220px;
-      height: 4px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 2px;
-      margin: 0 auto 10px;
-      overflow: hidden;
-    }
-    #scale-bar {
-      height: 100%;
-      width: 50%;
-      background: linear-gradient(90deg, #7EB8FF, #FFD580);
-      border-radius: 2px;
-      transition: width 0.1s ease;
-    }
-    #scale-word {
-      font-size: 22px;
-      font-style: italic;
-      letter-spacing: 0.05em;
-    }
+    /* minimal control hint (no title/branding) */
     #hint {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: rgba(255,255,255,0.45);
-      font-size: 12px;
-      letter-spacing: 0.15em;
-      pointer-events: none;
+      position: fixed; bottom: 18px; right: 20px; z-index: 10;
+      color: rgba(255,245,225,0.55); font-size: 12px; letter-spacing: 0.08em;
+      text-align: right; line-height: 1.7; pointer-events: none; user-select: none;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
     }
+    #hint b { color: rgba(255,225,170,0.85); font-weight: normal; }
+    #hint .flv { color: rgba(255,210,130,0.95); font-style: italic; }
+
+    #sound-hint {
+      position: fixed; bottom: 18px; left: 20px; z-index: 10;
+      color: rgba(255,245,225,0.7); font-size: 12px; letter-spacing: 0.08em;
+      pointer-events: none; user-select: none; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+    #sound-hint b { color: rgba(255,225,170,0.9); font-weight: normal; }
+
+    #flash { position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+             background: radial-gradient(ellipse at center, rgba(255,231,160,0.9) 0%, rgba(255,210,120,0.35) 35%, rgba(255,200,90,0) 70%); }
+    #found { position: fixed; top: 38%; left: 50%; transform: translateX(-50%) scale(0.8); z-index: 11;
+             color: #fff3c4; font-size: 30px; letter-spacing: 0.12em; opacity: 0; pointer-events: none; user-select: none;
+             text-shadow: 0 0 18px rgba(255,200,80,0.9), 0 2px 6px rgba(0,0,0,0.6); }
+    #taunt { position: fixed; top: 11%; left: 50%; transform: translateX(-50%); z-index: 11; white-space: nowrap;
+             color: #ffe6ab; font-size: 25px; letter-spacing: 0.12em; opacity: 0; pointer-events: none; user-select: none;
+             padding: 13px 30px; border-radius: 999px; border: 1px solid rgba(255,205,120,0.35);
+             background: rgba(22,13,5,0.66); box-shadow: 0 0 26px rgba(0,0,0,0.5), inset 0 0 18px rgba(255,180,70,0.12);
+             text-shadow: 0 0 14px rgba(255,180,60,0.7), 0 2px 5px rgba(0,0,0,0.8); }
+    #taunt b { color: #fff6d6; font-weight: normal; border-bottom: 1px solid rgba(255,220,140,0.5); }
+
+    /* title / intro overlay → fades out into the scene */
+    #intro {
+      position: fixed; inset: 0; z-index: 50; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      background: radial-gradient(ellipse at center, #2a1c0c 0%, #140d05 70%, #0a0703 100%);
+      opacity: 1; transition: opacity 1.3s ease;
+    }
+    #intro.hide { opacity: 0; pointer-events: none; }
+    .intro-inner { animation: introIn 1.6s ease both; }
+    @keyframes introIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .t-main { color: #f6e4b8; font-size: 46px; letter-spacing: 0.12em; text-shadow: 0 0 26px rgba(255,200,110,0.35);
+              padding: 0 16px; line-height: 1.3; }
+    .t-sub  { color: rgba(246,228,184,0.7); font-size: 17px; letter-spacing: 0.32em; margin-top: 16px; }
+    .t-start { color: rgba(255,225,170,0.55); font-size: 13px; letter-spacing: 0.28em; margin-top: 54px;
+               animation: blink 2.2s ease-in-out infinite; }
+    @keyframes blink { 0%,100% { opacity: 0.3; } 50% { opacity: 0.85; } }
+
+    #errbox { position: fixed; inset: 0; z-index: 99; display: none; color: #ffd; background: rgba(0,0,0,0.9);
+              font-family: monospace; font-size: 13px; padding: 24px; white-space: pre-wrap; overflow: auto; }
   </style>
 </head>
 <body>
 
-<div id="hint">ALICE IN WONDERLAND SYNDROME — TOY STORY ROOM</div>
+<div id="errbox"></div>
 
-<div id="ui">
-  <div id="scale-label">perception scale</div>
-  <div id="scale-bar-wrap"><div id="scale-bar"></div></div>
-  <div id="scale-word">normal</div>
+<div id="intro">
+  <div class="intro-inner">
+    <div class="t-main">モル・ガチャ・ピタラメンガ</div>
+    <div class="t-sub">― だれも見ていない部屋で ―</div>
+    <div class="t-start">クリックして はじめる</div>
+  </div>
 </div>
+<div id="hint">
+  <b>クリック</b> … 大砲で撃つ<br>
+  <b>Ctrl(⌘)+クリック</b> … カオスモード
+</div>
+<div id="sound-hint">🔊 画面を<b>クリック</b>で音が出ます</div>
+<div id="flash"></div>
+<div id="found">💥 おもちゃボスを止めた！ 💥</div>
+<div id="taunt">👀 人間がいないぞ！ いまだ —— <b>Ctrl(⌘)+クリック</b>で暴れろ！</div>
 
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/",
+    "cannon-es": "./vendor/cannon-es/cannon-es.js"
   }
 }
 </script>
 
 <script type="module">
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass }     from 'three/addons/postprocessing/ShaderPass.js';
+const errbox = document.getElementById('errbox');
+function fatal(e){ errbox.style.display='block'; errbox.textContent='Load error:\n'+(e && e.stack ? e.stack : e); console.error(e); }
+window.addEventListener('error', ev => fatal(ev.error || ev.message));
 
-// ── renderer ────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+
+// ════════════════════════════════════════════════════════════════
+// T003 — renderer + camera + scene + resize  (Setup)
+// ════════════════════════════════════════════════════════════════
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+} catch (e1) {
+  try { renderer = new THREE.WebGLRenderer({ antialias: false }); }   // retry without AA
+  catch (e2) {
+    errbox.style.display = 'block';
+    errbox.textContent =
+      'WebGL を初期化できませんでした。\n\n' +
+      '・VSCode の内蔵プレビュー / Simple Browser ではなく、\n' +
+      '  Chrome・Safari・Firefox など通常のブラウザで\n' +
+      '  http://localhost:8000/ を開いてください。\n' +
+      '・ブラウザのハードウェアアクセラレーションを有効化してください\n' +
+      '  (Chrome: 設定 → システム → 「ハードウェア アクセラレーションが使用可能な場合は使用する」をオン)。\n\n' +
+      '--- detail ---\n' + (e2 && e2.message ? e2.message : e2);
+    throw e2;
+  }
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));          // capped (T027 / SC-006)
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.05;
 document.body.appendChild(renderer.domElement);
 
-// ── scene / camera ───────────────────────────────────────────────
-const scene  = new THREE.Scene();
-scene.fog    = new THREE.Fog(0xCDE8FF, 6, 18);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+// fixed framing: looking slightly down at the tower zone on the floor (T007)
+camera.position.set(0, 2.4, 8.2);
+const LOOK_AT = new THREE.Vector3(0, 1.5, 0);
+camera.lookAt(LOOK_AT);
 
-const camera = new THREE.PerspectiveCamera(65, innerWidth / innerHeight, 0.05, 60);
-camera.position.set(0, 1.55, 5);
-
-// ── Andy's room wallpaper texture ───────────────────────────────
-function makeWallpaper(w = 512, h = 512) {
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d');
-
-  // sky gradient
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0,   '#6DC6F0');
-  g.addColorStop(0.6, '#A8DCFF');
-  g.addColorStop(1,   '#C8ECFF');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-
-  // fluffy clouds
-  function cloud(x, y, r) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    const pts = [[0,0,r],[r*.55,-.3*r,r*.72],[-.4*r,-.2*r,r*.6],[r*.9,.1*r,r*.5],[-.7*r,.1*r,r*.45]];
-    pts.forEach(([cx,cy,cr]) => {
-      ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill();
-    });
-    ctx.restore();
-  }
-  [[90,80,42],[260,55,55],[420,95,38],[60,200,35],[190,185,48],[350,220,40],[80,340,45],[240,310,52],[410,350,36],[140,440,38],[310,430,50]].forEach(([x,y,r]) => cloud(x,y,r));
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-
-// ── wooden floor ────────────────────────────────────────────────
-function makeFloor(size = 512) {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  const planks = ['#C4803A','#D4924A','#B87030','#CA8840','#BC7A38'];
-  const pw = 80;
-  for (let row = 0; row < size / pw; row++) {
-    const col = planks[row % planks.length];
-    ctx.fillStyle = col;
-    ctx.fillRect(0, row * pw, size, pw);
-    // grain
-    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-    ctx.lineWidth = 1.5;
-    for (let i = 1; i < 6; i++) {
-      const y = row * pw + (i / 6) * pw;
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.bezierCurveTo(size*.3, y + 3, size*.7, y - 3, size, y + 1);
-      ctx.stroke();
-    }
-    // separator
-    ctx.fillStyle = 'rgba(60,30,0,0.35)';
-    ctx.fillRect(0, row * pw, size, 2);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(5, 5);
-  return tex;
-}
-
-// ── room geometry ───────────────────────────────────────────────
-const W = 10, H = 4.5, D = 12;
-const wp  = makeWallpaper();
-const flr = makeFloor();
-
-const matWall    = new THREE.MeshLambertMaterial({ map: wp, side: THREE.FrontSide });
-const matCeiling = new THREE.MeshLambertMaterial({ color: 0xFFF8EE });
-const matFloor   = new THREE.MeshLambertMaterial({ map: flr });
-
-function addPlane(geo, mat, pos, rotX, rotY) {
-  const m = new THREE.Mesh(geo, mat);
-  m.position.copy(pos);
-  if (rotX) m.rotation.x = rotX;
-  if (rotY) m.rotation.y = rotY;
-  m.receiveShadow = true;
-  scene.add(m);
-  return m;
-}
-
-addPlane(new THREE.PlaneGeometry(W, D), matFloor,   new THREE.Vector3(0, 0, -D/2+5), -Math.PI/2);
-addPlane(new THREE.PlaneGeometry(W, H), matWall,    new THREE.Vector3(0, H/2, -D/2+5));
-addPlane(new THREE.PlaneGeometry(D, H), matWall,    new THREE.Vector3(-W/2, H/2, -D/2+5+D/2), 0, Math.PI/2);
-addPlane(new THREE.PlaneGeometry(D, H), matWall,    new THREE.Vector3( W/2, H/2, -D/2+5+D/2), 0, -Math.PI/2);
-addPlane(new THREE.PlaneGeometry(W, D), matCeiling, new THREE.Vector3(0, H, -D/2+5), Math.PI/2);
-
-// ── toys ─────────────────────────────────────────────────────────
-const toyColors = [0xFF3B3B, 0x4477FF, 0x33CC66, 0xFFAA00, 0xCC44CC, 0xFF6622];
-
-function box(w, h, d, color, x, y, z, ry = 0) {
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshLambertMaterial({ color })
-  );
-  m.position.set(x, y, z);
-  m.rotation.y = ry;
-  m.castShadow = true;
-  scene.add(m);
-  return m;
-}
-
-// wooden letter blocks cluster
-box(.5,.5,.5, 0xFF3B3B, -2.0, .25, 0,   .3);
-box(.5,.5,.5, 0x4477FF, -1.5, .25, 0.3, -.2);
-box(.5,.5,.5, 0x33CC66, -1.8, .75, 0.1, .5);
-box(.5,.5,.5, 0xFFAA00, -1.2, .25, -.2, .1);
-box(.5,.5,.5, 0xCC44CC, -2.2, .25, 0.6, -.4);
-
-// stacked tower
-box(.6,.6,.6, 0xFF6622,  2.0, .30, -.5, .1);
-box(.5,.5,.5, 0xFF3B3B,  2.0, .85, -.5, .3);
-box(.4,.4,.4, 0xFFAA00,  2.0,1.30, -.5, .5);
-
-// ball
-const ball = new THREE.Mesh(
-  new THREE.SphereGeometry(.45, 32, 32),
-  new THREE.MeshLambertMaterial({ color: 0xFF6B35 })
+// ════════════════════════════════════════════════════════════════
+// T006 — worldview backdrop image (far, cover-fit)  (Foundational / FR-001)
+// ════════════════════════════════════════════════════════════════
+const IMG_ASPECT = 1672/941;
+const backdrop = new THREE.Mesh(
+  new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshBasicMaterial({ color: 0x8a7a64, depthWrite: false })  // fallback tint until texture loads
 );
-ball.position.set(1.2, .45, .5);
-ball.castShadow = true;
-scene.add(ball);
+backdrop.position.set(0, 3.2, -9);     // behind the action
+backdrop.renderOrder = -1;
+scene.add(backdrop);
+// Backdrop room image (assets/haikei.png, 1672×941; cover-fit). Fallback tint if missing.
+new THREE.TextureLoader().load('./assets/haikei.png', tex => {
+  tex.colorSpace = THREE.SRGBColorSpace;
+  backdrop.material.map = tex; backdrop.material.color.set(0xffffff); backdrop.material.needsUpdate = true;
+}, undefined, err => console.warn('backdrop haikei.png not found — using fallback color', err));
 
-// Woody-ish figure (rough silhouette)
-function figure(x, z) {
-  const g = new THREE.Group();
-  // body
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(.12,.16,.5,8), new THREE.MeshLambertMaterial({color:0xF5C87A}));
-  body.position.y = .5; g.add(body);
-  // head
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.14,16,16), new THREE.MeshLambertMaterial({color:0xFDDBAA}));
-  head.position.y = .85; g.add(head);
-  // hat
-  const hat = new THREE.Mesh(new THREE.CylinderGeometry(.08,.14,.14,8), new THREE.MeshLambertMaterial({color:0x8B4513}));
-  hat.position.y = 1.01; g.add(hat);
-  // legs
-  [-1,1].forEach(s => {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,.35,8), new THREE.MeshLambertMaterial({color:0x336699}));
-    leg.position.set(s*.08,.18,0); g.add(leg);
-  });
-  g.position.set(x,.0,z);
-  g.castShadow = true;
-  scene.add(g);
-  return g;
+function fitBackdrop(){
+  const dist = Math.abs(camera.position.z - backdrop.position.z);
+  const h = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov)/2) * dist;
+  const w = h * camera.aspect;
+  // cover-fit a plane of image aspect into the w×h frustum slice
+  const planeAspect = w / h;
+  let sw, sh;
+  if (planeAspect > IMG_ASPECT) { sw = w; sh = w / IMG_ASPECT; } else { sh = h; sw = h * IMG_ASPECT; }
+  backdrop.scale.set(sw * 1.04, sh * 1.04, 1);
 }
-const woody = figure(-3.0, -0.5);
-const buzz  = figure( 3.0,  0.3);
-buzz.children.forEach(c => {
-  if (c.material) c.material = new THREE.MeshLambertMaterial({ color: 0x2244AA });
+fitBackdrop();
+
+// ════════════════════════════════════════════════════════════════
+// T008 — lighting matched to the warm room  (Foundational)
+// ════════════════════════════════════════════════════════════════
+scene.add(new THREE.AmbientLight(0xfff0d8, 0.85));
+const key = new THREE.DirectionalLight(0xffe6bc, 1.5);
+key.position.set(4, 9, 5); key.castShadow = true;
+key.shadow.mapSize.setScalar(2048);
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 40;
+key.shadow.camera.left = -8; key.shadow.camera.right = 8;
+key.shadow.camera.top = 10; key.shadow.camera.bottom = -4;
+key.shadow.bias = -0.0006;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xdfeeff, 0x6b5030, 0.35));
+
+// ════════════════════════════════════════════════════════════════
+// T005 — cannon-es physics world + fixed-step helper  (Foundational)
+// ════════════════════════════════════════════════════════════════
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -18, 0) });   // a touch heavy for toy snappiness
+world.allowSleep = true;
+world.solver.iterations = 12;
+world.defaultContactMaterial.friction = 0.45;
+world.defaultContactMaterial.restitution = 0.28;
+
+const FIXED_DT = 1/60;
+function stepPhysics(dt){ world.step(FIXED_DT, Math.min(dt, 0.1), 4); }
+
+// ════════════════════════════════════════════════════════════════
+// T007 — invisible ground plane + contact-shadow catcher  (Foundational)
+// ════════════════════════════════════════════════════════════════
+const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+groundBody.quaternion.setFromEuler(-Math.PI/2, 0, 0);   // face up (+Y)
+world.addBody(groundBody);
+// soft transparent shadow catcher so pieces look grounded on the depicted floor
+const shadowFloor = new THREE.Mesh(
+  new THREE.PlaneGeometry(40, 40),
+  new THREE.ShadowMaterial({ opacity: 0.32 })
+);
+shadowFloor.rotation.x = -Math.PI/2; shadowFloor.receiveShadow = true; scene.add(shadowFloor);
+
+// invisible side walls (inward-facing) so scattered pieces stay roughly in frame
+[[-7,0],[7,0],[0,-6],[0,6]].forEach(([x,z]) => {
+  const b = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+  // CANNON.Plane local normal is +Z; rotate so it points inward toward the origin
+  if (x) b.quaternion.setFromEuler(0, x > 0 ? -Math.PI/2 : Math.PI/2, 0);  // right→-X, left→+X
+  else   b.quaternion.setFromEuler(0, z > 0 ? Math.PI : 0, 0);             // front→-Z, back→+Z
+  b.position.set(x, 0, z);
+  world.addBody(b);
 });
 
-// shelf
-box(2.5,.08,.3, 0xA0622A, -3.0, 2.0, -4.5, 0);
-box(.5,.4,.25, 0xCC3333,  -3.5, 2.22,-4.5, .2);
-box(.5,.4,.25, 0x3355CC,  -3.0, 2.22,-4.5, -.1);
-box(.5,.4,.25, 0x22AA44,  -2.5, 2.22,-4.5, .3);
+// ════════════════════════════════════════════════════════════════
+// T011 — piece factory (block / teacup / minicar) + pool  (US1)
+// T010 — Piece record {mesh, body, kind, home, inTower}
+// ════════════════════════════════════════════════════════════════
+const PIECE_POOL_MAX = 20;
+const TOWER_TARGET   = 14;
+const SPAWN_RADIUS   = 0.16;       // random horizontal offset → "出鱈目" lean (smaller = more stable, taller)
+const BLOCK_COLORS = [0xE4533B, 0x4A86C5, 0x46B36B, 0xF2A93B, 0xB45CC0, 0xF2D04B, 0xE98AB0];
 
-// ── lighting ─────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xFFF0D0, 0.55));
-
-const sun = new THREE.DirectionalLight(0xFFE8C0, 1.8);
-sun.position.set(3, 6, 4);
-sun.castShadow = true;
-sun.shadow.mapSize.setScalar(1024);
-sun.shadow.camera.near = 0.5;
-sun.shadow.camera.far  = 30;
-sun.shadow.camera.left = sun.shadow.camera.bottom = -8;
-sun.shadow.camera.right = sun.shadow.camera.top   =  8;
-scene.add(sun);
-
-const fillLight = new THREE.PointLight(0xFFCC88, .6, 12);
-fillLight.position.set(-2, 3.5, 2);
-scene.add(fillLight);
-
-// ── AIWS distortion shader ───────────────────────────────────────
-// Combines fluid-style UV warping with micro/macropsia lens effects
-const AIWSShader = {
-  uniforms: {
-    tDiffuse:   { value: null },
-    uTime:      { value: 0 },
-    uPhase:     { value: 0 },   // -1 = micropsia, 0 = normal, 1 = macropsia
-    uIntensity: { value: 0 },
-    uResolution:{ value: new THREE.Vector2(innerWidth, innerHeight) },
-  },
-  vertexShader: /* glsl */`
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-    }
-  `,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse;
-    uniform float uTime;
-    uniform float uPhase;      // -1..1
-    uniform float uIntensity;  // 0..1
-    uniform vec2  uResolution;
-    varying vec2  vUv;
-
-    // ---- simplex noise 2D ----
-    vec3 mod289v3(vec3 x){ return x - floor(x*(1./289.))*289.; }
-    vec2 mod289v2(vec2 x){ return x - floor(x*(1./289.))*289.; }
-    vec3 permute3(vec3 x){ return mod289v3(((x*34.)+1.)*x); }
-    float snoise(vec2 v){
-      const vec4 C = vec4(0.211324865405187,0.366025403784439,-0.577350269189626,0.024390243902439);
-      vec2 i  = floor(v + dot(v,C.yy));
-      vec2 x0 = v - i + dot(i,C.xx);
-      vec2 i1 = (x0.x>x0.y) ? vec2(1,0) : vec2(0,1);
-      vec4 x12 = x0.xyxy + C.xxzz;
-      x12.xy -= i1;
-      i = mod289v2(i);
-      vec3 p = permute3(permute3(i.y+vec3(0,i1.y,1))+i.x+vec3(0,i1.x,1));
-      vec3 m = max(0.5-vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.);
-      m=m*m; m=m*m;
-      vec3 xa = 2.*fract(p*C.www)-1.;
-      vec3 h  = abs(xa)-.5;
-      vec3 ox = floor(xa+.5);
-      vec3 a0 = xa-ox;
-      m *= 1.79284291400159 - 0.85373472095314*(a0*a0+h*h);
-      vec3 g;
-      g.x  = a0.x *x0.x  + h.x *x0.y;
-      g.yz = a0.yz*x12.xz + h.yz*x12.yw;
-      return 130.*dot(m,g);
-    }
-
-    // ---- fluid-style curl displacement ----
-    vec2 fluidOffset(vec2 uv, float t, float str) {
-      float s = 3.5;
-      float nx = snoise(vec2(uv.x*s + t*.4,  uv.y*s - t*.3));
-      float ny = snoise(vec2(uv.x*s - t*.35, uv.y*s + t*.5));
-      // curl to make it divergence-free
-      float dx = snoise(vec2(uv.x*s + t*.4,  uv.y*s - t*.3 + 100.));
-      float dy = snoise(vec2(uv.x*s - t*.35 + 100., uv.y*s + t*.5));
-      return vec2(nx - dy, ny - dx) * str;
-    }
-
-    void main() {
-      vec2 uv = vUv;
-      float t  = uTime;
-      float k  = uIntensity;   // 0..1
-      float ph = uPhase;       // -1..1
-
-      // ---- 1. AIWS lens warp (micro / macropsia) ----
-      // positive phase → macropsia (things seem huge → fisheye squeeze)
-      // negative phase → micropsia (things seem tiny → pincushion stretch)
-      vec2 cen = uv - 0.5;
-      float r2  = dot(cen,cen);
-      // barrel strength: positive = fisheye (macro), negative = pincushion (micro)
-      float barrel = ph * k * 0.55;
-      cen *= 1.0 + barrel * r2 * 3.5;
-      uv = cen + 0.5;
-
-      // ---- 2. Fluid distortion (three-fluid-fx style UV warp) ----
-      float fluidStr = k * 0.022;
-      vec2  offset   = fluidOffset(uv, t, fluidStr);
-      // stronger at periphery, like AIWS perception bleeding at edges
-      float edge = smoothstep(0.0, 0.45, length(cen));
-      uv += offset * (0.4 + edge * 0.8);
-
-      // ---- 3. Chromatic aberration — peaks during phase transition ----
-      float ca = k * (0.006 + abs(ph) * 0.012);
-      vec2  dir = normalize(cen + 1e-5) * ca;
-      float rr = texture2D(tDiffuse, uv + dir).r;
-      float gg = texture2D(tDiffuse, uv      ).g;
-      float bb = texture2D(tDiffuse, uv - dir).b;
-
-      // ---- 4. Vignette — tighter when effect is strong ----
-      float vig = 1.0 - smoothstep(0.35 - k*0.15, 0.85, length(cen) * 1.4);
-
-      // ---- 5. Subtle hue pulse (reality feels "off") ----
-      float hpulse = sin(t * 1.1 + ph * 3.0) * 0.04 * k;
-      rr += hpulse;
-      bb -= hpulse * 0.5;
-
-      gl_FragColor = vec4(vec3(rr,gg,bb) * vig, 1.0);
-    }
-  `,
-};
-
-// ── post-processing ──────────────────────────────────────────────
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-const aiwsPass = new ShaderPass(AIWSShader);
-composer.addPass(aiwsPass);
-
-// ── AIWS cycle state ─────────────────────────────────────────────
-// phase sequence: normal → macropsia (giant) → normal → micropsia (tiny) → …
-const CYCLE = [
-  { phase: 0,  duration: 3.0,  label: 'normal',      color: '#ffffff' },
-  { phase: 1,  duration: 6.0,  label: '巨人症',      color: '#FFD580' },
-  { phase: 0,  duration: 2.5,  label: 'normal',      color: '#ffffff' },
-  { phase: -1, duration: 6.0,  label: '小人症',      color: '#7EB8FF' },
+// 不思議なブロック textures — the toy is cut from its white background so the block
+// reads as the toy's silhouette (not a white square). Canvas chroma-key, local, no CDN.
+const BLOCK_FILES = [
+  'block1.png','block2.png','block3.png','block4.png','block7.png','block8.png',
+  'block9.png','block10.png','block11.png','block12.png','block13.png','block14.png','block15.png','block16.png',
 ];
-let cycleIdx = 0, cycleT = 0;
+const BLOCK_TEXTURES = new Array(BLOCK_FILES.length).fill(null);
+function loadCutoutTexture(url, { bright = 232, chroma = 22 } = {}){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      const ctx = cv.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const id = ctx.getImageData(0, 0, w, h), d = id.data;
+      for (let i = 0; i < d.length; i += 4){            // near-white + low-chroma → transparent
+        const r=d[i], g=d[i+1], b=d[i+2], mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+        if (mx >= bright && (mx - mn) <= chroma) d[i+3] = 0;
+      }
+      // 1px edge feather so alphaTest doesn't alias into a hard halo
+      const a = new Uint8ClampedArray(w*h);
+      for (let p=0,j=3;p<a.length;p++,j+=4) a[p]=d[j];
+      for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++){
+        const p=y*w+x, c=a[p], s=(a[p-1]+a[p+1]+a[p-w]+a[p+w])>>2;
+        if (c!==s) d[(p<<2)+3]=(c+s)>>1;
+      }
+      ctx.putImageData(id, 0, 0);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.needsUpdate = true;
+      resolve(tex);
+    };
+    img.onerror = reject; img.src = url;
+  });
+}
+BLOCK_FILES.forEach((f, idx) => {
+  loadCutoutTexture('./assets/block/' + f).then(tex => {
+    BLOCK_TEXTURES[idx] = tex;
+    for (const p of pieces){
+      if (p.kind === 'block' && p.texSlot === idx){
+        p.mesh.material.map = tex; p.mesh.material.needsUpdate = true;
+        if (p.mesh.customDepthMaterial){ p.mesh.customDepthMaterial.map = tex; p.mesh.customDepthMaterial.needsUpdate = true; }
+      }
+    }
+  }).catch(err => console.warn('cutout load failed', f, err));
+});
 
-const scaleBar  = document.getElementById('scale-bar');
-const scaleWord = document.getElementById('scale-word');
-
-// ── animation loop ───────────────────────────────────────────────
-let clock = new THREE.Clock();
-
-function animate() {
-  requestAnimationFrame(animate);
-  const dt   = Math.min(clock.getDelta(), 0.05);
-  const time = clock.getElapsedTime();
-
-  // ---- advance AIWS cycle ----
-  cycleT += dt;
-  const stage = CYCLE[cycleIdx];
-  if (cycleT >= stage.duration) {
-    cycleT -= stage.duration;
-    cycleIdx = (cycleIdx + 1) % CYCLE.length;
-  }
-  const progress  = cycleT / stage.duration;
-  // smooth ease in/out
-  const envelope  = Math.sin(progress * Math.PI);
-  const targetPh  = stage.phase;
-  const intensity = (cycleIdx === 0 || CYCLE[cycleIdx].phase === 0)
-    ? envelope * 0.3          // transition phases: light
-    : envelope;               // peak phases: full
-
-  aiwsPass.uniforms.uTime.value      = time;
-  aiwsPass.uniforms.uPhase.value     = targetPh * intensity;
-  aiwsPass.uniforms.uIntensity.value = intensity * (Math.abs(targetPh) > 0.5 ? 1.0 : 0.4);
-
-  // ---- camera: FOV + height shift to amplify size illusion ----
-  // macropsia → narrow FOV (you feel huge, room looks small)
-  // micropsia → wide FOV  (you feel tiny, room looks vast)
-  const ph   = aiwsPass.uniforms.uPhase.value;
-  const fov  = 65 - ph * 22;
-  camera.fov = fov;
-  camera.updateProjectionMatrix();
-
-  // height: giant = high camera, tiny = low camera
-  const baseY  = 1.55;
-  camera.position.y = baseY + ph * 1.0;
-
-  // subtle sway
-  camera.position.x = Math.sin(time * 0.13) * 0.06;
-  camera.lookAt(
-    Math.sin(time * 0.09) * 0.04,
-    camera.position.y - 0.05,
-    -2
-  );
-
-  // ---- toys breathe slightly ----
-  ball.position.y = .45 + Math.sin(time * 1.4) * .04;
-  woody.rotation.y = Math.sin(time * 0.3) * 0.05;
-  buzz.rotation.y  = Math.sin(time * 0.25 + 1.0) * 0.05;
-
-  // ---- UI ----
-  const normalizedPh = (ph + 1) / 2;  // 0=micro, 0.5=normal, 1=macro
-  scaleBar.style.width = (normalizedPh * 100).toFixed(1) + '%';
-  scaleBar.style.background = ph > 0.05
-    ? 'linear-gradient(90deg,#FFD580,#FF8844)'
-    : ph < -0.05
-    ? 'linear-gradient(90deg,#4499FF,#7EB8FF)'
-    : 'rgba(255,255,255,0.5)';
-  scaleWord.textContent = CYCLE[cycleIdx].label;
-  scaleWord.style.color  = CYCLE[cycleIdx].color;
-
-  composer.render();
+function makeBlock(i){
+  const s = 0.5 + Math.random()*0.16;
+  const w = s, h = s, d = s * 0.42;                    // thin tile: real depth, face dominates
+  const slot = i % BLOCK_FILES.length;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),
+    new THREE.MeshStandardMaterial({ map: BLOCK_TEXTURES[slot], color: 0xffffff,
+      roughness: 0.6, metalness: 0.05, transparent: false, alphaTest: 0.5, side: THREE.DoubleSide }));
+  // shadow respects the cutout (not the square box)
+  mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: BLOCK_TEXTURES[slot], alphaTest: 0.5 });
+  const body = new CANNON.Body({ mass: 1.0, shape: new CANNON.Box(new CANNON.Vec3(w/2,h/2,d/2)), allowSleep:true, sleepSpeedLimit:0.3 });
+  return { mesh, body, halfH: h/2, texSlot: slot };
+}
+const HOME = new THREE.Vector3(0, -6, 0);   // off-screen parking for pooled pieces
+const pieces = [];
+for (let i = 0; i < PIECE_POOL_MAX; i++){
+  const built = makeBlock(i);
+  built.mesh.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(built.mesh);
+  const p = { mesh: built.mesh, body: built.body, halfH: built.halfH, kind: 'block', texSlot: built.texSlot, home: HOME.clone(), inTower: false };
+  p.body.position.set(HOME.x, HOME.y - i*1.2, HOME.z);   // stash apart, asleep
+  p.body.sleep();
+  world.addBody(p.body);
+  pieces.push(p);
+}
+function syncPiece(p){
+  p.mesh.position.copy(p.body.position);
+  p.mesh.quaternion.copy(p.body.quaternion);
 }
 
-animate();
-
-// ── resize ────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  composer.setSize(innerWidth, innerHeight);
-  aiwsPass.uniforms.uResolution.value.set(innerWidth, innerHeight);
+// ════════════════════════════════════════════════════════════════
+// Toy people — cutout billboards of hito1.png / hito2.png (wander only in chaos)
+// ════════════════════════════════════════════════════════════════
+const FIGURE_H = 1.5;
+function makeFigure(file, x, z){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(FIGURE_H, FIGURE_H),
+    new THREE.MeshStandardMaterial({ map:null, color:0xffffff, roughness:0.7, metalness:0.05,
+      transparent:false, alphaTest:0.5, side:THREE.DoubleSide }));
+  m.castShadow = true; m.position.set(x, FIGURE_H/2, z); scene.add(m);
+  loadCutoutTexture('./assets/' + file).then(t => { m.material.map = t; m.material.needsUpdate = true; })
+    .catch(err => console.warn(file + ' load failed', err));
+  return m;
+}
+const builders = [ makeFigure('hito1.png', -1.7, 1.4), makeFigure('hito2.png', 1.7, 1.5) ];
+function pickBuilderTarget(w){
+  const ang = Math.random()*Math.PI*2, rad = 1.6 + Math.random()*2.8;
+  w.target.set(Math.cos(ang)*rad, 0, 1.0 + Math.sin(ang)*rad*0.6);
+  w.target.x = Math.max(-5.3, Math.min(5.3, w.target.x));
+  w.target.z = Math.max(-3.3, Math.min(4.3, w.target.z));
+}
+builders.forEach((b, i) => {
+  b.userData.w = { pos: b.position.clone(), target: b.position.clone(), yaw: 0, pause: Math.random()*2, step: 0, moving: false };
+  pickBuilderTarget(b.userData.w);
 });
+
+
+// ════════════════════════════════════════════════════════════════
+// kuruma — a wind-up toy CAR that drives around the floor (cutout billboard)
+// distinct from the stacking blocks: it never stacks, it roams like a little car.
+// ════════════════════════════════════════════════════════════════
+const kuruma = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 1.05),
+  new THREE.MeshStandardMaterial({ map:null, color:0xffffff, roughness:0.7, metalness:0.05,
+    transparent:false, alphaTest:0.5, side:THREE.DoubleSide }));
+kuruma.castShadow = true; kuruma.position.set(-3.5, 0.55, 2.6); scene.add(kuruma);
+loadCutoutTexture('./assets/block/kuruma.png').then(t => { kuruma.material.map = t; kuruma.material.needsUpdate = true; })
+  .catch(err => console.warn('kuruma load failed', err));
+const car = { pos: new THREE.Vector3(-3.5, 0, 2.6), target: new THREE.Vector3(-3.5, 0, 2.6), pause: 0 };
+function pickCarTarget(){
+  car.target.set((Math.random()*2-1)*5.0, 0, 1.0 + (Math.random()*2-1)*3.0);
+}
+pickCarTarget();
+function updateKuruma(dt, time){
+  if (!chaosActive){ kuruma.lookAt(camera.position.x, kuruma.position.y, camera.position.z); return; }  // frozen in normal mode
+  const SP = 1.9;
+  if (car.pause > 0){ car.pause -= dt; }
+  else {
+    const to = new THREE.Vector3().subVectors(car.target, car.pos); to.y = 0;
+    if (to.length() < 0.25){ car.pause = 0.3 + Math.random()*1.2; pickCarTarget(); }
+    else { to.normalize(); car.pos.addScaledVector(to, SP*dt); }
+  }
+  car.pos.x = Math.max(-5.5, Math.min(5.5, car.pos.x));
+  car.pos.z = Math.max(-3.5, Math.min(4.5, car.pos.z));
+  const moving = car.pause <= 0;
+  kuruma.position.set(car.pos.x, 0.55 + (moving ? Math.abs(Math.sin(time*14))*0.05 : 0), car.pos.z);  // little bounce while rolling
+  kuruma.lookAt(camera.position.x, kuruma.position.y, camera.position.z);   // billboard (always show the car)
+}
+
+// ════════════════════════════════════════════════════════════════
+// T009 — state machine  (Foundational)
+// ════════════════════════════════════════════════════════════════
+const Phase = { BUILDING:'building', READY:'ready', CRASHING:'crashing', SETTLING:'settling', RESET:'reset' };
+let phase = Phase.BUILDING;
+let started = false;   // becomes true when the title screen is dismissed
+let buildTimer = 0, idleTime = 0, settleTimer = 0, crashTimer = 0, sinceSpawn = 0;
+let runTime = 0, nextTaunt = 10, tauntT = 0, chaosTime = 0, calmT = 0;   // banner / intermission schedulers
+const CALM_DUR = 15;   // quiet beat after defeating the boss before jenga resumes
+const LURE_MSG = '👀 人間がいないぞ！ いまだ —— <b>Ctrl(⌘)+クリック</b>で暴れろ！';
+const BOSS_MSG = '🔥 光る<b>おもちゃボス</b>を撃ち倒して、おもちゃカオスを止めろ！';
+
+const tower = { list: [], topY: 0 };
+const SPAWN_INTERVAL = 1.24;   // 2× slower stacking
+const MIN_PIECES_TO_CRASH = 6;       // don't let it auto-collapse before it's a real tower (5+)
+const CRASH_TRIGGER_SPEED = 5.2;     // m/s — minor settling wobbles ignored; only real topples/hits count
+const SETTLE_KE = 0.4;
+const SETTLE_TIMEOUT = 6.0;
+
+function setPhase(next){
+  phase = next;
+  if (next === Phase.CRASHING){ crashTimer = 0; }
+  if (next === Phase.SETTLING){ settleTimer = 0; }
+  if (next === Phase.BUILDING){ buildTimer = SPAWN_INTERVAL * 0.5; }
+}
+
+// crash audio seam (FR-010 / FE-003) — plays assets/crash.mp3 scaled by impact strength
+function onImpact(intensity){ playCrash(intensity); }
+
+function spawnPieceOnTower(){
+  const next = pieces.find(p => !p.inTower);
+  if (!next) return;
+  next.inTower = true;
+  tower.list.push(next);
+  const ang = Math.random()*Math.PI*2, rad = Math.random()*SPAWN_RADIUS;
+  const x = Math.cos(ang)*rad, z = Math.sin(ang)*rad * 0.4;
+  const y = tower.topY + next.halfH + 0.02;            // tiny gap → gentle settle, low impact
+  next.body.wakeUp();
+  next.body.velocity.setZero(); next.body.angularVelocity.setZero();
+  next.body.position.set(x, y, z);
+  next.body.quaternion.setFromEuler(0, Math.random()*Math.PI*2, (Math.random()-0.5)*0.05);  // less lean
+  tower.topY = y + next.halfH;
+  sinceSpawn = 0;
+}
+
+function maxTowerSpeed(){
+  let m = 0;
+  for (const p of tower.list){ const v = p.body.velocity; const s = Math.hypot(v.x,v.y,v.z); if (s>m) m=s; }
+  return m;
+}
+function totalKE(){
+  let ke = 0;
+  for (const p of pieces){ const v=p.body.velocity, w=p.body.angularVelocity; ke += v.x*v.x+v.y*v.y+v.z*v.z + 0.3*(w.x*w.x+w.y*w.y+w.z*w.z); }
+  return ke;
+}
+function triggerCrash(by){
+  if (tower.list.length < MIN_PIECES_TO_CRASH) return;       // edge case: no/empty tower → no-op
+  if (phase !== Phase.BUILDING && phase !== Phase.READY) return;
+  const intensity = Math.min(1, maxTowerSpeed() / 12);       // louder for harder hits
+  onImpact(intensity);
+  setPhase(Phase.CRASHING);
+}
+function recyclePieces(){
+  // Toy Story rule: toys never vanish — they stay where they fell ("play dead"),
+  // and the builders pick them back up off the floor to re-stack. Just free them.
+  for (const p of pieces) p.inTower = false;
+  tower.list.length = 0; tower.topY = 0;
+}
+
+// ════════════════════════════════════════════════════════════════
+// CHAOS MODE — hold the mouse still ("humans look away") → gravity vanishes,
+// toys float in a crazy zero-g parade, and a TREASURE hides among them.
+// ════════════════════════════════════════════════════════════════
+const NORMAL_G = 18;
+let chaosActive = false, chaosLevel = 0, chaosHold = false;   // chaos only via Ctrl/⌘+click
+
+// treasure (otakara) — appears ONLY during chaos; made to feel special:
+// the cutout glows (emissive), a pulsing golden halo blooms behind it, sparkles orbit, it floats.
+function makeRadialGlowTex(){
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64,64,0, 64,64,64);
+  g.addColorStop(0,   'rgba(255,240,200,1)');
+  g.addColorStop(0.35,'rgba(255,225,150,0.55)');
+  g.addColorStop(1,   'rgba(255,210,120,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,128,128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const _glowTex = makeRadialGlowTex();
+const treasure = new THREE.Group(); treasure.visible = false; scene.add(treasure);
+const treasureCard = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 1.0),
+  new THREE.MeshStandardMaterial({ map:null, emissiveMap:null, emissive:0xffffff, emissiveIntensity:0.0,
+    color:0xffffff, roughness:0.5, metalness:0.1, transparent:false, alphaTest:0.5, side:THREE.DoubleSide }));
+treasureCard.castShadow = false; treasure.add(treasureCard);
+const treasureHalo = new THREE.Sprite(new THREE.SpriteMaterial({ map:_glowTex, color:0xFFE6A0, blending:THREE.AdditiveBlending, depthWrite:false, transparent:true }));
+treasureHalo.scale.set(2.6,2.6,1); treasure.add(treasureHalo);
+const sparkles = [];
+for (let i=0;i<7;i++){
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:_glowTex, color:0xFFFFFF, blending:THREE.AdditiveBlending, depthWrite:false, transparent:true }));
+  sp.scale.setScalar(0.22); treasure.add(sp); sparkles.push(sp);
+}
+loadCutoutTexture('./assets/block/otakara.png').then(t => {
+  treasureCard.material.map = t; treasureCard.material.emissiveMap = t; treasureCard.material.needsUpdate = true;
+}).catch(err => console.warn('otakara load failed', err));
+const treasureGlow = new THREE.PointLight(0xFFE08A, 0, 7, 2); scene.add(treasureGlow);
+const treasureBody = new CANNON.Body({ mass: 0.5, shape: new CANNON.Sphere(0.4), allowSleep:false });
+treasureBody.position.set(0, -30, 0); treasureBody.sleep(); world.addBody(treasureBody);
+
+let treasureFx = 0;                       // >0 while the "found!" celebration plays
+const flashEl = document.getElementById('flash');
+const foundEl = document.getElementById('found');
+const tauntEl = document.getElementById('taunt');
+function foundTreasure(){
+  if (treasureFx > 0) return;             // already collecting
+  treasureFx = 1.2;                       // celebration timer (seconds)
+  playBossHit();                          // boss-defeat SFX (assets/boss.mp3 if present)
+  foundEl.style.transition = 'opacity .2s ease, transform .5s ease';
+  foundEl.style.opacity = '1'; foundEl.style.transform = 'translateX(-50%) scale(1.1)';
+}
+
+function enterChaos(){
+  // fling every toy into a floating cloud with random spin
+  pieces.forEach((p) => {
+    p.inTower = false;
+    p.body.wakeUp();
+    const a = Math.random()*Math.PI*2, r = 1.0 + Math.random()*2.6, h = 1.0 + Math.random()*3.2;
+    p.body.position.set(Math.cos(a)*r, h, 0.8 + Math.sin(a)*r*0.5);
+    p.body.velocity.set((Math.random()-0.5)*3, (Math.random()-0.5)*2.5, (Math.random()-0.5)*2);
+    p.body.angularVelocity.set((Math.random()-0.5)*7,(Math.random()-0.5)*7,(Math.random()-0.5)*7);
+  });
+  tower.list.length = 0; tower.topY = 0;
+  // hide the treasure somewhere in the swirling cloud
+  treasure.visible = true; treasureBody.wakeUp();
+  const a = Math.random()*Math.PI*2, r = 1.4 + Math.random()*1.2;
+  treasureBody.position.set(Math.cos(a)*r, 2.4, 0.8 + Math.sin(a)*r*0.5);
+  treasureBody.velocity.set((Math.random()-0.5)*2, 0.6, (Math.random()-0.5)*2);
+  treasureBody.angularVelocity.set(2,3,1);
+}
+function exitChaos(){
+  treasure.visible = false; treasureGlow.intensity = 0;
+  treasureBody.sleep(); treasureBody.position.set(0,-30,0);
+  setPhase(Phase.SETTLING);   // gravity returns (lerp) → toys rain down, settle, then rebuild
+}
+function chaosForces(){
+  // swirl around the center + gather toward mid-height → a drifting "parade"
+  for (const p of pieces){
+    const pos = p.body.position;
+    p.body.applyForce(new CANNON.Vec3(-pos.z*0.55, (2.5 - pos.y)*0.5, pos.x*0.55));
+    if (Math.random() < 0.08) p.body.applyImpulse(new CANNON.Vec3((Math.random()-0.5)*0.5,(Math.random()-0.5)*0.5,(Math.random()-0.5)*0.4));
+  }
+  const tp = treasureBody.position;
+  treasureBody.applyForce(new CANNON.Vec3(-tp.z*0.7, (2.6 - tp.y)*0.6, tp.x*0.7));
+}
+
+// ════════════════════════════════════════════════════════════════
+// T017/T018 — pointer velocity + invisible wrecking-ball  (US2 / FR-005, FR-007)
+// ════════════════════════════════════════════════════════════════
+const pointer = { x: innerWidth/2, y: innerHeight/2, px: innerWidth/2, py: innerHeight/2, speed: 0, has:false };
+addEventListener('pointermove', e => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.has = true; });
+addEventListener('touchmove', e => { if(e.touches[0]){ pointer.x=e.touches[0].clientX; pointer.y=e.touches[0].clientY; pointer.has=true; } }, {passive:true});
+
+const raycaster = new THREE.Raycaster();
+const planeZ0 = new THREE.Plane(new THREE.Vector3(0,0,1), 0);   // vertical plane through tower center
+const _ndc = new THREE.Vector2(), _hit = new THREE.Vector3();
+function raycastHitsTreasure(){
+  if (!treasure.visible) return false;
+  _ndc.set((pointer.x/innerWidth)*2-1, -(pointer.y/innerHeight)*2+1);
+  raycaster.setFromCamera(_ndc, camera);
+  return raycaster.intersectObject(treasureCard, false).length > 0;
+}
+function pointerToWorld(){
+  _ndc.set((pointer.x/innerWidth)*2-1, -(pointer.y/innerHeight)*2+1);
+  raycaster.setFromCamera(_ndc, camera);
+  return raycaster.ray.intersectPlane(planeZ0, _hit) ? _hit : null;
+}
+
+const SWING_THRESHOLD = 1100;    // px/s — below → wrecking ball barely moves → no crash
+const ballBody = new CANNON.Body({ type: CANNON.Body.KINEMATIC, shape: new CANNON.Sphere(0.55), collisionResponse: true });
+ballBody.position.set(0, -20, 0);
+world.addBody(ballBody);
+let ballInit = false;
+
+// ════════════════════════════════════════════════════════════════
+// T019 — toy cannon projectiles (click/tap)  (US2 / FR-006)
+// ════════════════════════════════════════════════════════════════
+const PROJECTILES = 6;
+const cannonballs = [];
+for (let i=0;i<PROJECTILES;i++){
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.26,18,18),
+    new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness:0.35, metalness:0.6 }));
+  mesh.castShadow = true; mesh.visible = false; scene.add(mesh);
+  const body = new CANNON.Body({ mass: 3.0, shape: new CANNON.Sphere(0.26) });
+  body.position.set(0,-30,0); body.sleep(); world.addBody(body);
+  cannonballs.push({ mesh, body, life: 0, active:false });
+}
+let cbCursor = 0;
+function fireCannon(){
+  const target = pointerToWorld(); if (!target) return;
+  const cb = cannonballs[cbCursor]; cbCursor = (cbCursor+1)%PROJECTILES;
+  const origin = new THREE.Vector3(camera.position.x*0.4, 0.6, camera.position.z - 1.2);  // low front "cannon"
+  const dir = new THREE.Vector3().subVectors(target, origin).normalize();
+  cb.body.wakeUp();
+  cb.body.position.set(origin.x, origin.y, origin.z);
+  cb.body.velocity.set(dir.x*26, dir.y*26 + 2.0, dir.z*26);
+  cb.body.angularVelocity.setZero();
+  cb.active = true; cb.life = 0; cb.mesh.visible = true;
+}
+addEventListener('pointerdown', (e) => {
+  if (!started) return;                                              // ignore clicks until the title is dismissed
+  pointer.x = e.clientX; pointer.y = e.clientY; pointer.has = true;   // fresh coords for the raycast
+  if (e.ctrlKey || e.metaKey){ chaosHold = true; }    // Ctrl/⌘+click → ENTER Chaos Mode (humans look away)
+  else if (chaosHold){
+    if (treasureFx <= 0 && raycastHitsTreasure()) foundTreasure();    // clicked the treasure → FOUND!
+    else if (treasureFx <= 0) chaosHold = false;                     // clicked empty space → END Chaos Mode
+  }
+  else fireCannon();                                  // otherwise → fire the toy cannon
+});
+
+// ════════════════════════════════════════════════════════════════
+// Ambient music: default "Chaotic Toy Parade", idle "When Humans Look Away"
+// (crossfaded by pointer-idle state; started on first user gesture — autoplay policy)
+// NOTE: the crash "ガシャン" SFX is still deferred (onImpact no-op / FE-003).
+// ════════════════════════════════════════════════════════════════
+const soundHint = document.getElementById('sound-hint');
+const musActive = new Audio('./assets/Chaotic%20Toy%20Parade.mp3');     // normal / busy toys (URL-encoded)
+const musIdle   = new Audio('./assets/When%20Humans%20Look%20Away.mp3');  // when the pointer goes still
+[musActive, musIdle].forEach(a => {
+  a.loop = true; a.preload = 'auto'; a.volume = 0;
+  a.addEventListener('error', () => { soundHint.innerHTML = '⚠️ 音声読込失敗 code=' + (a.error && a.error.code); });
+});
+let audioStarted = false, audioPending = false;
+
+// crash SFX pool — plays the moment the tower is smashed (volume scaled by impact strength).
+// Drop a file at assets/crash.mp3 and it works automatically; absent → silently skipped.
+const CRASH_SRC = './assets/crash.mp3';
+const crashPool = Array.from({length: 4}, () => { const a = new Audio(CRASH_SRC); a.preload='auto'; return a; });
+let crashCursor = 0, crashAvailable = true;
+crashPool[0].addEventListener('error', () => { crashAvailable = false; });   // no file yet → skip
+function playCrash(intensity){
+  if (!crashAvailable) return;
+  const a = crashPool[crashCursor]; crashCursor = (crashCursor+1) % crashPool.length;
+  try { a.currentTime = 0; a.volume = Math.max(0.3, Math.min(1, intensity)); a.play().catch(()=>{}); } catch(e){}
+}
+
+// bounce/impact SFX — Cartoon Foley on hard piece collisions (throttled, gesture-gated)
+const FOLEY_SRC = './assets/Cartoon%20Foley.mp3';
+const foleyPool = Array.from({length: 5}, () => { const a = new Audio(FOLEY_SRC); a.preload='auto'; return a; });
+let foleyCursor = 0, foleyAvailable = true, lastFoley = 0;
+foleyPool[0].addEventListener('error', () => { foleyAvailable = false; });
+function playBounce(strength){
+  if (!foleyAvailable || !audioStarted || chaosActive) return;   // silent during chaos (don't break the mood)
+  const now = performance.now();
+  if (now - lastFoley < 300) return;                // throttle: at most ~3/sec, not a flurry
+  lastFoley = now;
+  const a = foleyPool[foleyCursor]; foleyCursor = (foleyCursor+1) % foleyPool.length;
+  try { a.currentTime = 0; a.volume = Math.max(0.15, Math.min(1, strength)); a.play().catch(()=>{}); } catch(e){}
+}
+
+// boss-defeat SFX — plays when the glowing おもちゃボス is shot (drop assets/boss.mp3; absent → skipped)
+const bossSfx = new Audio('./assets/boss.mp3'); bossSfx.preload = 'auto';
+let bossSfxAvailable = true;
+bossSfx.addEventListener('error', () => { bossSfxAvailable = false; });
+function playBossHit(){
+  if (!bossSfxAvailable || !audioStarted) return;   // plays even in chaos (it's the payoff)
+  try { bossSfx.currentTime = 0; bossSfx.volume = 1.0; bossSfx.play().catch(()=>{}); } catch(e){}
+}
+function onPieceCollide(e){
+  const s = Math.abs(e.contact ? e.contact.getImpactVelocityAlongNormal() : 0);
+  if (s > 3.2) playBounce(Math.min(1, s/8));         // only the harder hits, scaled by impact
+}
+pieces.forEach(p => p.body.addEventListener('collide', onPieceCollide));
+cannonballs.forEach(cb => cb.body.addEventListener('collide', onPieceCollide));
+treasureBody.addEventListener('collide', onPieceCollide);
+function startAudio(){
+  if (audioStarted || audioPending) return;
+  audioPending = true;
+  // only mark started once playback ACTUALLY succeeds (a blocked play() must not lock us out)
+  Promise.allSettled([ musActive.play(), musIdle.play() ]).then(results => {
+    audioPending = false;
+    if (results.some(r => r.status === 'fulfilled')){ audioStarted = true; soundHint.style.display = 'none'; }
+  });
+}
+addEventListener('pointerdown', startAudio);
+addEventListener('keydown', startAudio);
+addEventListener('touchstart', startAudio, { passive:true });
+
+// ════════════════════════════════════════════════════════════════
+// T028 — pause when tab hidden (no physics blow-up on return)
+// ════════════════════════════════════════════════════════════════
+let hidden = false;
+document.addEventListener('visibilitychange', () => { hidden = document.hidden; clock.getDelta(); });
+
+// ════════════════════════════════════════════════════════════════
+// main loop
+// ════════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  if (hidden) return;
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  // --- pointer speed ---
+  const dx = pointer.x - pointer.px, dy = pointer.y - pointer.py;
+  pointer.speed = dt > 0 ? Math.hypot(dx,dy)/dt : 0;
+  pointer.px = pointer.x; pointer.py = pointer.y;
+  if (pointer.speed < 60) idleTime += dt; else idleTime = 0;
+
+  // --- ambient music crossfade: chaos OR idle → "When Humans Look Away", else "Chaotic Toy Parade" ---
+  if (audioStarted){
+    const idleNow = chaosHold || chaosActive || idleTime > 0.6;   // Ctrl+click chaos forces the humans-look-away track
+    const fade = Math.min(dt * 1.6, 1);                   // ~0.6s crossfade
+    const aTarget = idleNow ? 0.0 : 0.85, iTarget = idleNow ? 0.85 : 0.0;
+    musActive.volume += (aTarget - musActive.volume) * fade;
+    musIdle.volume   += (iTarget - musIdle.volume)   * fade;
+  }
+
+  // --- wrecking ball follows projected cursor continuously; only COLLIDES when swung fast (FR-007) ---
+  const target = pointer.has ? pointerToWorld() : null;
+  if (target){
+    if (!ballInit){ ballBody.position.set(target.x, target.y, 0); ballInit = true; }
+    const C = 45;
+    const vx = (target.x - ballBody.position.x)/Math.max(dt,1e-3);
+    const vy = (target.y - ballBody.position.y)/Math.max(dt,1e-3);
+    ballBody.velocity.set(Math.max(-C,Math.min(C,vx)), Math.max(-C,Math.min(C,vy)), 0);
+    // slow drift passes through harmlessly; a fast swing becomes a solid impactor
+    ballBody.collisionResponse = pointer.speed > SWING_THRESHOLD;
+  } else {
+    ballBody.position.set(0,-20,0); ballBody.velocity.setZero(); ballBody.collisionResponse = false;
+  }
+
+  // --- chaos mode: Ctrl/⌘+click ENTERS, a normal click ENDS it (move freely to hunt the treasure) ---
+  const wantChaos = started && chaosHold;
+  if (wantChaos && !chaosActive){ chaosActive = true; enterChaos(); }
+  else if (!wantChaos && chaosActive){ chaosActive = false; exitChaos(); nextTaunt = runTime + 14 + Math.random()*8; tauntT = 0; }  // cooldown before the next lure
+  chaosLevel += ((chaosActive ? 1 : 0) - chaosLevel) * Math.min(dt*3, 1);
+  world.gravity.y = -NORMAL_G * (1 - chaosLevel);
+  if (chaosActive) chaosForces();
+  // banners: normal mode → lure the Ctrl/⌘+click; chaos mode → after a beat, "defeat the boss toy" goal
+  if (chaosActive){
+    chaosTime += dt; tauntT = 0;
+    if (chaosTime > 4){ tauntEl.innerHTML = BOSS_MSG; tauntEl.style.opacity = '1'; }
+    else tauntEl.style.opacity = '0';
+  } else {
+    chaosTime = 0;
+    if (calmT > 0){
+      // post-boss calm beat: messages, no lure, jenga paused
+      calmT -= dt; tauntT = 0; tauntEl.style.opacity = '0';
+      if (calmT < CALM_DUR - 4 && calmT > 0.6) foundEl.innerHTML = '🚪 もう直ぐ 人が帰ってくるはず…';
+      if (calmT <= 0.6){ foundEl.style.opacity = '0'; foundEl.style.transform = 'translateX(-50%) scale(0.8)'; }
+      nextTaunt = runTime + 12 + Math.random()*8;   // hold the lure off after the calm too
+    } else {
+      if (started){
+        runTime += dt;
+        if (tauntT > 0) tauntT -= dt;
+        else if (runTime >= nextTaunt){ tauntT = 4.5; nextTaunt = runTime + 9 + Math.random()*9; tauntEl.innerHTML = LURE_MSG; }
+      }
+      let tOp = 0;
+      if (tauntT > 0){ tOp = Math.max(0, Math.min(1, Math.min((4.5 - tauntT)/0.4, tauntT/0.7))); }
+      tauntEl.style.opacity = tOp.toFixed(2);
+    }
+  }
+
+  // --- physics (collapse plays at half speed for a satisfying slow-mo fall) ---
+  const slowmo = (phase === Phase.CRASHING || phase === Phase.SETTLING) ? 0.5 : 1.0;
+  stepPhysics(dt * slowmo);
+  sinceSpawn += dt;
+
+  // --- state machine (only after the title is dismissed; suspended while chaos reigns) ---
+  if (started && !chaosActive){
+    if (phase === Phase.BUILDING){
+      buildTimer -= dt;
+      if (calmT <= 0 && buildTimer <= 0 && tower.list.length < TOWER_TARGET){ spawnPieceOnTower(); buildTimer = SPAWN_INTERVAL; }
+      if (tower.list.length >= TOWER_TARGET) setPhase(Phase.READY);
+      if (sinceSpawn > 0.4 && maxTowerSpeed() > CRASH_TRIGGER_SPEED) triggerCrash('auto');
+    } else if (phase === Phase.READY){
+      if (maxTowerSpeed() > CRASH_TRIGGER_SPEED) triggerCrash('auto');   // covers self-topple + impacts
+    } else if (phase === Phase.CRASHING){
+      crashTimer += dt;
+      if (crashTimer > 0.6) setPhase(Phase.SETTLING);
+    } else if (phase === Phase.SETTLING){
+      settleTimer += dt;
+      if (totalKE() < SETTLE_KE || settleTimer > SETTLE_TIMEOUT) setPhase(Phase.RESET);
+    } else if (phase === Phase.RESET){
+      recyclePieces();
+      setPhase(Phase.BUILDING);
+    }
+  }
+
+  // --- sync meshes (all pieces: chaos cloud + parked pool both track their bodies) ---
+  for (const p of pieces) syncPiece(p);
+  if (treasure.visible){
+    treasure.position.copy(treasureBody.position);
+    treasure.position.y += Math.sin(t*2.0)*0.08;                 // gentle float
+    treasureCard.quaternion.copy(camera.quaternion);             // billboard the otakara so it always faces you
+    const pulse = 0.5 + 0.5*Math.sin(t*4.0);
+    treasureCard.material.emissiveIntensity = 0.5 + pulse*0.7;   // breathing self-glow
+    treasureHalo.material.opacity = (0.35 + pulse*0.4) * chaosLevel;
+    treasureHalo.scale.setScalar(2.3 + pulse*0.6);
+    treasureGlow.position.copy(treasure.position);
+    treasureGlow.intensity = (1.6 + pulse*1.4) * chaosLevel;     // pulsing golden light
+    sparkles.forEach((sp, i) => {                                // orbiting twinkles
+      const a = t*2.0 + i*(Math.PI*2/sparkles.length);
+      sp.position.set(Math.cos(a)*0.72, Math.sin(a*1.3)*0.5, Math.sin(a)*0.72);
+      const tw = 0.5 + 0.5*Math.sin(t*9 + i*1.7);
+      sp.material.opacity = tw * chaosLevel; sp.scale.setScalar(0.12 + tw*0.18);
+    });
+    // --- "found!" celebration: bloom of light, treasure swells & rises, then it's collected ---
+    if (treasureFx > 0){
+      treasureFx -= dt;
+      const k = 1 - Math.max(0, treasureFx) / 1.2;               // 0→1 over the celebration
+      treasure.scale.setScalar(1 + k*1.6);
+      treasure.position.y += k*1.2;                              // rises as it's collected
+      treasureCard.material.emissiveIntensity = 1.5 + k*3;
+      treasureHalo.material.opacity = 0.9; treasureHalo.scale.setScalar(2.5 + k*9);
+      treasureGlow.intensity = 6 + k*10;
+      flashEl.style.opacity = (Math.sin(Math.min(1,k)*Math.PI) * 0.9).toFixed(2);
+      if (treasureFx <= 0){                                      // collected → tidy up + end chaos
+        treasure.visible = false; treasure.scale.setScalar(1); flashEl.style.opacity = '0';
+        chaosHold = false;                                       // humans look back → chaos ends
+        calmT = CALM_DUR;                                        // calm intermission before jenga resumes
+        foundEl.innerHTML = '🎉 無事 おもちゃカオスを止めた！';   // keep the banner up for the calm beat
+        foundEl.style.opacity = '1'; foundEl.style.transform = 'translateX(-50%) scale(1.0)';
+      }
+    }
+  }
+  for (const cb of cannonballs){
+    if (cb.active){
+      cb.mesh.position.copy(cb.body.position); cb.mesh.quaternion.copy(cb.body.quaternion);
+      cb.life += dt;
+      if (cb.life > 3.2){ cb.active=false; cb.mesh.visible=false; cb.body.sleep(); cb.body.position.set(0,-30,0); }
+    }
+  }
+
+  // --- roaming car (chaos only) ---
+  updateKuruma(dt, t);
+
+  // --- toy people: alive (wander) ONLY during chaos; frozen "play dead" in normal mode ---
+  const figBaseY = FIGURE_H/2;
+  builders.forEach((b, i) => {
+    const w = b.userData.w;
+    if (!chaosActive){
+      w.moving = false; b.position.y = figBaseY;
+      b.lookAt(camera.position.x, b.position.y, camera.position.z);   // face camera, stand frozen
+      return;
+    }
+    if (w.pause > 0){ w.pause -= dt; w.moving = false; }
+    else {
+      const to = new THREE.Vector3().subVectors(w.target, w.pos); to.y = 0;
+      if (to.length() < 0.18){ w.pause = 0.5 + Math.random()*2.0; pickBuilderTarget(w); w.moving = false; }
+      else { to.normalize(); w.pos.addScaledVector(to, 1.0*dt); w.moving = true; }
+    }
+    if (w.moving) w.step += dt*9;
+    b.position.set(w.pos.x, figBaseY + (w.moving ? Math.abs(Math.sin(w.step))*0.06 : 0), w.pos.z);
+    b.lookAt(camera.position.x, b.position.y, camera.position.z);     // billboard
+  });
+
+  renderer.render(scene, camera);
+}
+try { animate(); } catch(e){ fatal(e); }
+
+// ════════════════════════════════════════════════════════════════
+// T027 — resize (keep tower framed, cover-fit backdrop)  (FR-014)
+// ════════════════════════════════════════════════════════════════
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  fitBackdrop();
+});
+
+// ════════════════════════════════════════════════════════════════
+// title screen → fade out into the running scene (scene animates behind it)
+// ════════════════════════════════════════════════════════════════
+const introEl = document.getElementById('intro');
+let introDone = false;
+function dismissIntro(){
+  if (introDone) return; introDone = true;
+  startAudio();                              // the first gesture also unlocks audio
+  introEl.classList.add('hide');
+  setTimeout(() => { introEl.style.display = 'none'; }, 1400);
+  // start the toys ~after the fade so stacking begins fresh once the title clears
+  setTimeout(() => { started = true; }, 700);
+}
+introEl.addEventListener('pointerdown', (e) => { e.stopPropagation(); dismissIntro(); });   // don't fire the cannon
+addEventListener('keydown', dismissIntro);
 </script>
 </body>
 </html>
